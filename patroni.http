@@ -1,0 +1,75 @@
+
+################################
+# PRIMARY
+################################
+GET http://localhost:8000/patroni
+
+###
+GET http://localhost:8000/cluster
+
+###
+GET http://localhost:8000/config
+
+
+
+################################
+# SECONDARY
+################################
+GET http://localhost:8001/patroni
+
+###
+GET http://localhost:8001/cluster
+
+###
+GET http://localhost:8001/config
+
+
+####
+#PATCH http://localhost:8001/config
+#content-type: application/json
+#Authorization: Basic YWRtaW46cGFzc3dvcmQK
+#
+#{
+#  "standby_cluster": {
+#    "primary_slot": null
+#  }
+#}
+
+###
+# Reconfigure PRIMARY as standby
+PATCH http://localhost:8000/config
+content-type: application/json
+Authorization: Basic cmVzdGFwaTpwYXNzd29yZAo=
+
+//{
+//  "standby_cluster": {
+//    "host": null,
+//    "port": null
+//  }
+//}
+{
+  "standby_cluster": {
+    "host": "secondary-gateway",
+    "port": 5000
+  }
+}
+
+
+###
+# Reconfigure SECONDARY as lead
+PATCH http://localhost:8001/config
+content-type: application/json
+Authorization: Basic cmVzdGFwaTpwYXNzd29yZAo=
+
+//{
+//  "standby_cluster": {
+//    "host": "primary-gateway",
+//    "port": 5000
+//  }
+//}
+{
+  "standby_cluster": {
+    "host": null,
+    "port": null
+  }
+}

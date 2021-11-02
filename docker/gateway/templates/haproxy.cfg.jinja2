@@ -1,0 +1,36 @@
+global
+	maxconn 100
+
+defaults
+	log	stdout format raw local0 {{ HAPROXY_LOG_LEVEL }}
+	mode	tcp
+	retries 2
+	timeout client 30m
+	timeout connect 4s
+	timeout server 30m
+	timeout check 5s
+
+listen postgres
+    bind *:5432
+    balance roundrobin
+
+    {%- for node in CLUSTER_NODES %}
+    server {{ node.name }} {{ node.ip }}:5432
+    {%- endfor %}
+
+listen patroni
+    bind *:5000
+    balance roundrobin
+
+    {%- for node in CLUSTER_NODES %}
+    server {{ node.name }} {{ node.ip }}:5000
+    {%- endfor %}
+
+listen restapi
+    bind *:8008
+    balance roundrobin
+
+    {%- for node in CLUSTER_NODES %}
+    server {{ node.name }} {{ node.ip }}:8008
+    {%- endfor %}
+

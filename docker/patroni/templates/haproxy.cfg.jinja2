@@ -1,0 +1,22 @@
+global
+	maxconn 100
+
+defaults
+	log	stdout format raw local0 {{ HAPROXY_LOG_LEVEL }}
+	mode	tcp
+	retries 3
+	timeout client 30m
+	timeout connect 4s
+	timeout server 30m
+	timeout check 5s
+
+listen {{ CLUSTER }}
+    bind *:5000
+	option httpchk
+	http-check expect status 200
+	default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+
+    {%- for node in CLUSTER_NODES %}
+    server {{ node.name }} {{ node.ip }}:5432 check port 8008
+    {%- endfor %}
+

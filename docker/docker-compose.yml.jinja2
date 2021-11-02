@@ -1,0 +1,41 @@
+version: "3.8"
+
+networks:
+    crosssite:
+        name: crosssite
+        external: true
+
+services:
+    {%- for node in CLUSTER_NODES.split(',') %}
+    {{ node }}:
+        image: syrics.us/patroni/cluster
+        networks:
+            - crosssite
+        container_name: {{ node }}
+        hostname: {{ node }}
+        environment:
+            NODE: {{ node }}
+            {%- for var, val in ENVIRONMENT.items() %}
+                {%- if val %}
+            {{ var }}: {{ val }}
+                {%- endif  %}
+            {%- endfor %}
+    {%- endfor %}
+
+    {{ CLUSTER_GATEWAY }}:
+        image: syrics.us/patroni/gateway
+        networks:
+            - crosssite
+        container_name: {{ CLUSTER_GATEWAY }}
+        hostname: {{ CLUSTER_GATEWAY }}
+        environment:
+            NODE: {{ CLUSTER_GATEWAY }}
+            {%- for var, val in ENVIRONMENT.items() %}
+                {%- if val %}
+            {{ var }}: {{ val }}
+                {%- endif  %}
+            {%- endfor %}
+        ports:
+            - {{ PT_API_GATEWAY_PORT }}:8008
+            - {{ PT_GATEWAY_PORT }}:5000
+            - {{ PG_GATEWAY_PORT }}:5432

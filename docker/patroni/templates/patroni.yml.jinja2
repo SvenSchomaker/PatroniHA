@@ -1,0 +1,105 @@
+scope: {{ CLUSTER }}
+#namespace: /service/
+name: {{ NODE }}
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: {{ NODE }}:8008
+{#  authentication:#}
+{#    username: {{ PATRONI_RESTAPI_USERNAME }}#}
+{#    password: {{ PATRONI_RESTAPI_PASSWORD }}#}
+
+etcd:
+  #Provide host to do the initial discovery of the cluster topology:
+  hosts:
+    {%- for node in CLUSTER_NODES %}
+    - {{ node.name }}:2379
+    {%- endfor %}
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    master_start_timeout: 300
+    synchronous_mode: false
+{% if PATRONI_STANDBY_PRIMARY_LEADER %}
+    standby_cluster:
+      host: {{ PATRONI_STANDBY_PRIMARY_LEADER }}
+      port: 5000
+      {% if PATRONI_STANDBY_PRIMARY_LEADER_SLOT_NAME %}
+      primary_slot_name: patroni
+      {% endif %}
+{%  endif %}
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        log_destination: "stderr"
+        log_min_messages: "{{ POSTGRESQL_LOG_LEVEL }}"
+        wal_level: {{ PATRONI_WAL_LEVEL }}
+        hot_standby: "on"
+        max_connections: 100
+        max_worker_processes: 8
+        wal_keep_segments: {{ PATRONI_WAL_KEEP_SEGMENTS }}
+        max_wal_senders: {{ PATRONI_WAL_MAX_SENDERS }}
+        max_replication_slots: {{ PATRONI_WAL_MAX_REPLICATION_SLOTS }}
+#        max_prepared_transactions: 0
+#        max_locks_per_transaction: 64
+#        wal_log_hints: "on"
+#        track_commit_timestamp: "off"
+#        archive_mode: "on"
+#        archive_timeout: 1800s
+#        archive_command: mkdir -p ../wal_archive && test ! -f ../wal_archive/%f && cp %p ../wal_archive/%f
+#      recovery_conf:
+#        restore_command: cp ../wal_archive/%f %p
+
+  # some desired options for 'initdb'
+  initdb:  # Note: It needs to be a list (some options need values, others are switches)
+  - encoding: UTF8
+  - data-checksums
+
+  pg_hba:
+  - host all all 0.0.0.0/0 md5
+  - host replication replicator 127.0.0.1/32 md5
+  - host replication replicator all md5
+
+  # Some additional users users which needs to be created after initializing new cluster
+  users:
+    {{ PATRONI_ADMIN_USERNAME }}:
+      password: {{ PATRONI_ADMIN_PASSWORD }}
+      options:
+        - createrole
+        - createdb
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: {{ NODE }}:5432
+  data_dir: /data/patroni/data
+  bin_dir: /usr/lib/postgresql/13/bin
+  pgpass: /tmp/pgpass
+  authentication:
+    replication:
+      username: {{ PATRONI_REPLICATION_USERNAME }}
+      password: {{ PATRONI_REPLICATION_PASSWORD }}
+    superuser:
+      username: {{ PATRONI_SUPERUSER_USERNAME }}
+      password: {{ PATRONI_SUPERUSER_PASSWORD }}
+    rewind:  # Has no effect on postgres 10 and lower
+      username: {{ PATRONI_REWIND_USERNAME }}
+      password: {{ PATRONI_REWIND_PASSWORD }}
+  parameters:
+    unix_socket_directories: '.'
+
+tags:
+    nofailover: false
+    noloadbalance: false
+    clonefrom: false
+    nosync: false
+
+watchdog:
+    mode: off
+
+log:
+    level: {{ PATRONI_LOG_LEVEL }}
